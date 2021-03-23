@@ -89,3 +89,88 @@ starting it up.
 }
 
 ```
+
+## Adding extra mounts
+
+There isn't support out of the box for this, but we can use the escape hatches
+of qemu.options. Here's an example the shares a wireguard and ssh folder with
+the VM so that the VM can be stateless and get its config from the host.
+
+
+`flake.nix`
+```nix
+{
+  small-vm = nixpkgs.lib.nixosSystem (
+    let
+      extra-mounts = {
+        "/etc/wireguard" = {
+          tag = "wireguard";
+          # Details here: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/Documentation/filesystems/9p.rst
+          cache = "loose";
+          target = "/persist/small-vm/etc/wireguard";
+        };
+        "/etc/ssh" = {
+          tag = "ssh";
+          # Rule of thumb, if it's r/w this should be none
+          cache = "none";
+          target = "/persist/small-vm/etc/ssh";
+        };
+      };
+    in
+    {
+      system = "x86_64-linux";
+      modules = [
+        ({ lib, pkgs, modulesPath, ... }: {
+          imports = [
+            (modulesPath + "/virtualisation/qemu-vm.nix")
+          ];
+          networking.wg-quick.interfaces = {
+            wg0 = {
+              address = [ "110.11.11.111/32" ];
+              dns = [ "1.1.1.1" ];
+              privateKeyFile = "/etc/wireguard/privateKey";
+              peers = [
+                # List of allowed peers.
+                {
+                  # Feel free to give a meaning full name
+                  # Public key of the peer (not a file path).
+                  publicKey = "dV/axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxM=";
+                  # List of IPs assigned to this peer within the tunnel subnet. Used to configure routing.
+                  allowedIPs = [ "0.0.0.0/0" "::/0" ];
+                  endpoint = "110.11.111.11:51820";
+                }
+              ];
+            };
+          };
+
+          # Mount our extra drives after boot
+          boot.initrd.postMountCommands = builtins.concatStringsSep " "
+            (lib.mapAttrsToList
+              (target: mount: ''
+                mkdir -p $targetRoot/${target}
+                mount -t 9p ${mount.tag} $targetRoot/${target} -o trans=virtio,version=9p2000.L,cache=${mount.cache}
+              '')
+              extra-mounts);
+
+          virtualisation = {
+            memorySize = 1024;
+            graphics = false;
+            # Add our extra options to add our extra-mounts
+            qemu.options = lib.mapAttrsToList (target: mount: "-virtfs local,path=${builtins.toString mount.target},security_model=none,mount_tag=${mount.tag}") extra-mounts;
+            qemu.networkingOptions = [
+              # We need to re-define our usermode network driver
+              # since we are overriding the default value.
+              "-net nic,netdev=user.0,model=virtio,"
+              # Then we can use qemu's hostfwd option to forward ports.
+              "-netdev user,hostfwd=tcp::8222-:22,hostfwd=tcp::9112-:8112,id=user.0\${QEMU_NET_OPTS:+,$QEMU_NET_OPTS}"
+            ];
+          };
+
+          # The rest is same as before
+          # ...
+        })
+      ];
+    }
+  );
+}
+```
