@@ -20,7 +20,7 @@ starting it up.
 {
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-20.09";
 
-  inputs.simple-vms.url = "/home/marco/code/simple-vms";
+  inputs.simple-vms.url = "github:marcopolo/simple-vms";
   inputs.simple-vms.inputs.nixpkgs.follows = "nixpkgs";
   inputs.simple-vms.inputs.flake-utils.follows = "flake-utils";
 
