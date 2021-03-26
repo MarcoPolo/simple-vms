@@ -8,6 +8,8 @@ will start a VM and keep it running. It uses the existing [qemu
 vm](https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/virtualisation/qemu-vm.nix)
 support in NixPkgs. It's really just a thin layer over a systemd service.
 
+Blog post: https://marcopolo.io/code/simple-vms/
+
 ## Example
 
 This example has a machine we call `server` and a vm called `small-vm`. The
