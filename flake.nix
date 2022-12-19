@@ -76,7 +76,7 @@
                   #!${pkgs.bash}/bin/bash
                   mkdir -p /var/lib/simple-vms/${name}
                   cd /var/lib/simple-vms/${name}
-                  exec ${cfg.vm.out}/bin/run-nixos-vm;
+                  exec ${cfg.vm.out}/bin/run-${name}-vm;
                 '';
                 serviceConfig.ExecStopPost = cleanupScript name cfg.persistState;
               };
